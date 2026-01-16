@@ -101,6 +101,27 @@ app.put('/articles/:id', async (req, res) => {
   }
 });
 
+// Route pour incrémenter les vues d'un article
+app.put('/articles/:id/view', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+      .from('articles')
+      .update({ views: supabase.raw('views + 1') })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Route pour supprimer un article
 app.delete('/articles/:id', async (req, res) => {
   try {
@@ -411,6 +432,48 @@ app.delete('/comments/:id', async (req, res) => {
     }
 
     res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Routes pour les notations
+// Ajouter ou mettre à jour une notation
+app.post('/ratings', async (req, res) => {
+  try {
+    const { user_id, article_id, rating } = req.body;
+
+    const { data, error } = await supabase
+      .from('ratings')
+      .upsert([{ user_id, article_id, rating }])
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get average rating for article
+app.get('/ratings/:articleId', async (req, res) => {
+  try {
+    const { articleId } = req.params;
+
+    const { data, error } = await supabase
+      .from('ratings')
+      .select('rating')
+      .eq('article_id', articleId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    const average = data.length > 0 ? data.reduce((sum, r) => sum + r.rating, 0) / data.length : 0;
+    res.json({ average: Math.round(average * 10) / 10, count: data.length });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
