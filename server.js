@@ -208,6 +208,30 @@ app.post('/users', async (req, res) => {
   }
 });
 
+// Connexion utilisateur
+app.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .eq('password', password)
+      .single();
+
+    if (error || !data) {
+      return res.status(401).json({ error: 'Identifiants invalides' });
+    }
+
+    // Retourner l'utilisateur sans le mot de passe
+    const { password: _, ...user } = data;
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get all users
 app.get('/users', async (req, res) => {
   try {
@@ -226,6 +250,28 @@ app.get('/users', async (req, res) => {
   }
 });
 
+// Update user profile
+app.put('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, email, profile_pic, description } = req.body;
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ username, email, profile_pic, description })
+      .eq('id', id)
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete user
 app.delete('/users/:id', async (req, res) => {
   try {
@@ -233,6 +279,130 @@ app.delete('/users/:id', async (req, res) => {
 
     const { error } = await supabase
       .from('users')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Routes pour les favoris
+// Ajouter un favori
+app.post('/favorites', async (req, res) => {
+  try {
+    const { user_id, article_id } = req.body;
+
+    const { data, error } = await supabase
+      .from('favorites')
+      .insert([{ user_id, article_id }])
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get favorites for user
+app.get('/favorites/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const { data, error } = await supabase
+      .from('favorites')
+      .select('*, articles(*)')
+      .eq('user_id', userId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete favorite
+app.delete('/favorites/:userId/:articleId', async (req, res) => {
+  try {
+    const { userId, articleId } = req.params;
+
+    const { error } = await supabase
+      .from('favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('article_id', articleId);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Routes pour les commentaires
+// Ajouter un commentaire
+app.post('/comments', async (req, res) => {
+  try {
+    const { user_id, article_id, content } = req.body;
+
+    const { data, error } = await supabase
+      .from('comments')
+      .insert([{ user_id, article_id, content }])
+      .select('*, users(username)');
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get comments for article
+app.get('/comments/:articleId', async (req, res) => {
+  try {
+    const { articleId } = req.params;
+
+    const { data, error } = await supabase
+      .from('comments')
+      .select('*, users(username, profile_pic)')
+      .eq('article_id', articleId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete comment
+app.delete('/comments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('comments')
       .delete()
       .eq('id', id);
 
