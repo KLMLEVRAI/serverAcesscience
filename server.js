@@ -1,11 +1,15 @@
 // Server.js pour le backend
-const express = require('express');
-const bodyParser = require('body-parser');
-const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
-const multer = require('multer');
-const crypto = require('crypto');
-const https = require('https');
+import express from 'express';
+import bodyParser from 'body-parser';
+import cors from 'cors';
+import { createClient } from '@supabase/supabase-js';
+import multer from 'multer';
+import crypto from 'crypto';
+import https from 'https';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Initialisation de l'application Express
 const app = express();
@@ -256,6 +260,27 @@ app.put('/users/:id', async (req, res) => {
   }
 });
 
+// Update user profile by email
+app.put('/users/update-profile', async (req, res) => {
+  try {
+    const { username, email, profile_pic, description } = req.body;
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ username, profile_pic, description })
+      .eq('email', email)
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Delete user
 app.delete('/users/:id', async (req, res) => {
   try {
@@ -447,4 +472,4 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-module.exports = app;
+export default app;
