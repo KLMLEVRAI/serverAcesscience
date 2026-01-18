@@ -24,8 +24,31 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Configuration de Supabase
 const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Ensure images bucket exists
+(async () => {
+  try {
+    const { data, error } = await supabase.storage.listBuckets();
+    if (error) throw error;
+    const bucketExists = data.some(bucket => bucket.name === 'images');
+    if (!bucketExists) {
+      const { error: createError } = await supabase.storage.createBucket('images', {
+        public: true,
+        allowedMimeTypes: ['image/*'],
+        fileSizeLimit: 10485760 // 10MB
+      });
+      if (createError) {
+        console.error('Error creating images bucket:', createError);
+      } else {
+        console.log('Images bucket created successfully');
+      }
+    }
+  } catch (err) {
+    console.error('Error checking/creating images bucket:', err);
+  }
+})();
 
 // Configuration Brevo pour les emails
 const brevoApiKey = process.env.BREVO_API_KEY || '';
