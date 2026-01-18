@@ -40,7 +40,11 @@ const supabase = createClient(supabaseUrl, supabaseKey);
         fileSizeLimit: 10485760 // 10MB
       });
       if (createError) {
-        console.error('Error creating images bucket:', createError);
+        if (createError.message.includes('violates row-level security policy')) {
+          console.log('Images bucket likely already exists or RLS policy prevents creation. Assuming bucket is available.');
+        } else {
+          console.error('Error creating images bucket:', createError);
+        }
       } else {
         console.log('Images bucket created successfully');
       }
