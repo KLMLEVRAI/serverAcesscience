@@ -34,23 +34,12 @@ const supabase = createClient(supabaseUrl, supabaseKey);
     if (error) throw error;
     const bucketExists = data.some(bucket => bucket.name === 'images');
     if (!bucketExists) {
-      const { error: createError } = await supabase.storage.createBucket('images', {
-        public: true,
-        allowedMimeTypes: ['image/*'],
-        fileSizeLimit: 10485760 // 10MB
-      });
-      if (createError) {
-        if (createError.message.includes('violates row-level security policy')) {
-          console.log('Images bucket likely already exists or RLS policy prevents creation. Assuming bucket is available.');
-        } else {
-          console.error('Error creating images bucket:', createError);
-        }
-      } else {
-        console.log('Images bucket created successfully');
-      }
+      console.log('Images bucket does not exist. Please create it manually in Supabase dashboard with name "images", public access, allowed MIME types: image/*, file size limit: 10MB.');
+    } else {
+      console.log('Images bucket exists.');
     }
   } catch (err) {
-    console.error('Error checking/creating images bucket:', err);
+    console.error('Error checking images bucket:', err);
   }
 })();
 
@@ -435,6 +424,7 @@ app.post('/comments', async (req, res) => {
 app.get('/comments/:articleId', async (req, res) => {
   try {
     const { articleId } = req.params;
+    console.log('Fetching comments for articleId:', articleId);
 
     const { data, error } = await supabase
       .from('comments')
@@ -442,12 +432,16 @@ app.get('/comments/:articleId', async (req, res) => {
       .eq('article_id', articleId)
       .order('created_at', { ascending: false });
 
+    console.log('Supabase query result:', { data: data ? data.length : 0, error });
+
     if (error) {
+      console.error('Supabase error:', error);
       throw new Error(error.message);
     }
 
     res.json(data);
   } catch (error) {
+    console.error('Server error in /comments/:articleId:', error);
     res.status(500).json({ error: error.message });
   }
 });
