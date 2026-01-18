@@ -1,6 +1,7 @@
 {
   "name": "accessible-science-platform-server",
   "version": "1.0.0",
+  "type": "module",
   "description": "Backend server for the Accessible Science Platform",
   "main": "server.js",
   "scripts": {
