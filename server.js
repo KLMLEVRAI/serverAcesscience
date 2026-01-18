@@ -4,6 +4,8 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
+const crypto = require('crypto');
+const https = require('https');
 
 // Initialisation de l'application Express
 const app = express();
@@ -21,6 +23,10 @@ const upload = multer({ dest: 'uploads/' });
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
+
+// Configuration Brevo pour les emails
+const brevoApiKey = process.env.BREVO_API_KEY || '';
+const brevoApiUrl = 'https://api.brevo.com/v3/smtp/email';
 
 // Route pour créer un nouvel article
 app.post('/articles', async (req, res) => {
@@ -208,50 +214,7 @@ app.delete('/images/:id', async (req, res) => {
   }
 });
 
-// Routes pour les utilisateurs
-// Créer un utilisateur
-app.post('/users', async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-
-    const { data, error } = await supabase
-      .from('users')
-      .insert([{ username, email, password }])
-      .select();
-
-    if (error) {
-      throw new Error(error.message);
-    }
-
-    res.status(201).json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Connexion utilisateur
-app.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', email)
-      .eq('password', password)
-      .single();
-
-    if (error || !data) {
-      return res.status(401).json({ error: 'Identifiants invalides' });
-    }
-
-    // Retourner l'utilisateur sans le mot de passe
-    const { password: _, ...user } = data;
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
+// Authentification gérée par Firebase (email/mot de passe) et Supabase (Google OAuth)
 
 // Get all users
 app.get('/users', async (req, res) => {
