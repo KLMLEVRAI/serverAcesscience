@@ -18,10 +18,9 @@ const PORT = process.env.PORT || 3000;
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
-app.use('/uploads', express.static('uploads'));
 
 // Multer for file uploads
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Configuration de Supabase
 const supabaseUrl = process.env.SUPABASE_URL || '';
@@ -161,7 +160,28 @@ app.post('/images', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${file.filename}`;
+    // Upload to Supabase Storage
+    const fileExt = file.originalname.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `images/${fileName}`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('images') // Assuming bucket name is 'images'
+      .upload(filePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false
+      });
+
+    if (uploadError) {
+      throw new Error(uploadError.message);
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('images')
+      .getPublicUrl(filePath);
+
+    const imageUrl = urlData.publicUrl;
 
     // Save to database
     const { data: dbData, error: dbError } = await supabase
