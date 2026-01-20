@@ -337,6 +337,72 @@ app.delete('/users/:id', async (req, res) => {
   }
 });
 
+// Routes pour les clés d'accès
+// Get all access keys
+app.get('/access-keys', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('access_keys')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create new access key
+app.post('/access-keys', async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    // Generate a random API key
+    const key = crypto.randomBytes(32).toString('hex');
+
+    const { data, error } = await supabase
+      .from('access_keys')
+      .insert([{ name, key }])
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete access key
+app.delete('/access-keys/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const { error } = await supabase
+      .from('access_keys')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Routes pour les favoris
 // Ajouter un favori
 app.post('/favorites', async (req, res) => {
