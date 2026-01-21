@@ -30,33 +30,70 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Ensure images bucket exists
 (async () => {
   try {
+    console.log('🔍 Checking Supabase setup...');
+    
     // Test database connection first
     const { data: testData, error: testError } = await supabase.from('users').select('count').single();
     if (testError) {
       console.error('❌ Database connection failed:', testError.message);
       console.error('Please check your SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables');
+      return;
     } else {
       console.log('✅ Database connection successful');
     }
 
-    const { data, error } = await supabase.storage.listBuckets();
-    if (error) throw error;
-    const bucketExists = data.some(bucket => bucket.name === 'images');
+    // Check storage access
+    const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+    if (bucketError) {
+      console.error('❌ Storage access failed:', bucketError.message);
+      console.error('Please check your SUPABASE_SERVICE_ROLE_KEY has storage permissions');
+      return;
+    }
+    console.log('✅ Storage access successful');
+
+    // Check images bucket specifically
+    const bucketExists = buckets?.some(bucket => bucket.name === 'images');
     if (!bucketExists) {
-      console.log('❌ Images bucket does not exist. Please create it manually in Supabase dashboard with name "images", public access, allowed MIME types: image/*, file size limit: 10MB.');
+      console.log('❌ Images bucket does not exist.');
+      console.log('📝 To create it:');
+      console.log('   1. Go to Supabase Dashboard > Storage');
+      console.log('   2. Click "New bucket"');
+      console.log('   3. Name: images');
+      console.log('   4. Public: false');
+      console.log('   5. File size limit: 50MB');
+      console.log('   6. Allowed MIME types: image/*');
     } else {
-      console.log('✅ Images bucket exists.');
+      console.log('✅ Images bucket exists');
+      
+      // Test bucket access
+      try {
+        const { data: testFile, error: accessError } = await supabase.storage
+          .from('images')
+          .list('', { limit: 1 });
+        if (accessError) {
+          console.log('⚠️  Bucket exists but access denied:', accessError.message);
+        } else {
+          console.log('✅ Bucket access verified');
+        }
+      } catch (accessErr) {
+        console.log('⚠️  Bucket access test failed:', accessErr.message);
+      }
     }
 
     // Check if images table exists
     const { data: tableData, error: tableError } = await supabase.from('images').select('count').single();
     if (tableError) {
-      console.log('❌ Images table does not exist. Please run the database_setup.sql script in Supabase SQL Editor.');
+      console.log('❌ Images table does not exist.');
+      console.log('📝 To create it:');
+      console.log('   1. Go to Supabase Dashboard > SQL Editor');
+      console.log('   2. Run the database_setup.sql script');
     } else {
-      console.log('✅ Images table exists.');
+      console.log('✅ Images table exists and is accessible');
     }
+
+    console.log('🎯 Setup check completed!');
   } catch (err) {
-    console.error('❌ Error checking Supabase setup:', err);
+    console.error('❌ Critical error during setup check:', err);
   }
 })();
 
