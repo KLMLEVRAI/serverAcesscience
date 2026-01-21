@@ -30,16 +30,33 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 // Ensure images bucket exists
 (async () => {
   try {
+    // Test database connection first
+    const { data: testData, error: testError } = await supabase.from('users').select('count').single();
+    if (testError) {
+      console.error('❌ Database connection failed:', testError.message);
+      console.error('Please check your SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables');
+    } else {
+      console.log('✅ Database connection successful');
+    }
+
     const { data, error } = await supabase.storage.listBuckets();
     if (error) throw error;
     const bucketExists = data.some(bucket => bucket.name === 'images');
     if (!bucketExists) {
-      console.log('Images bucket does not exist. Please create it manually in Supabase dashboard with name "images", public access, allowed MIME types: image/*, file size limit: 10MB.');
+      console.log('❌ Images bucket does not exist. Please create it manually in Supabase dashboard with name "images", public access, allowed MIME types: image/*, file size limit: 10MB.');
     } else {
-      console.log('Images bucket exists.');
+      console.log('✅ Images bucket exists.');
+    }
+
+    // Check if images table exists
+    const { data: tableData, error: tableError } = await supabase.from('images').select('count').single();
+    if (tableError) {
+      console.log('❌ Images table does not exist. Please run the database_setup.sql script in Supabase SQL Editor.');
+    } else {
+      console.log('✅ Images table exists.');
     }
   } catch (err) {
-    console.error('Error checking images bucket:', err);
+    console.error('❌ Error checking Supabase setup:', err);
   }
 })();
 
@@ -219,6 +236,11 @@ app.post('/images', upload.single('image'), async (req, res) => {
       .select();
 
     if (dbError) {
+      if (dbError.message.includes('relation "images" does not exist')) {
+        return res.status(500).json({ 
+          error: 'Images table does not exist. Please create it in Supabase dashboard with columns: id (uuid, primary key), name (text), url (text), uploaded_at (timestamp).' 
+        });
+      }
       throw new Error(dbError.message);
     }
 
@@ -238,6 +260,11 @@ app.get('/images', async (req, res) => {
       .order('uploaded_at', { ascending: false });
 
     if (error) {
+      if (error.message.includes('relation "images" does not exist')) {
+        return res.status(500).json({ 
+          error: 'Images table does not exist. Please create it in Supabase dashboard with columns: id (uuid, primary key), name (text), url (text), uploaded_at (timestamp).' 
+        });
+      }
       throw new Error(error.message);
     }
 
@@ -588,9 +615,61 @@ app.get('/ratings/:articleId', async (req, res) => {
   }
 });
 
+// Health check route
+app.get('/health', async (req, res) => {
+  try {
+    // Test database connection
+    const { data: testData, error: testError } = await supabase.from('users').select('count').single();
+    if (testError) {
+      return res.status(500).json({ 
+        status: 'error',
+        database: 'disconnected',
+        error: testError.message 
+      });
+    }
+
+    // Test images table
+    const { data: imagesData, error: imagesError } = await supabase.from('images').select('count').single();
+    if (imagesError) {
+      return res.status(500).json({ 
+        status: 'error',
+        database: 'images_table_missing',
+        error: imagesError.message 
+      });
+    }
+
+    // Test bucket access
+    const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+    if (bucketError) {
+      return res.status(500).json({ 
+        status: 'error',
+        storage: 'bucket_error',
+        error: bucketError.message 
+      });
+    }
+
+    const bucketExists = buckets?.some(bucket => bucket.name === 'images');
+    
+    return res.status(200).json({
+      status: 'healthy',
+      database: 'connected',
+      storage: bucketExists ? 'bucket_exists' : 'bucket_missing',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'error',
+      error: error.message 
+    });
+  }
+});
+
 // Démarrage du serveur
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🔍 Health check available at: http://localhost:${PORT}/health`);
+  console.log(`📊 Database: ${process.env.SUPABASE_URL || 'Not configured'}`);
+  console.log(`🗂️  Images bucket: Checking...`);
 });
 
 export default app;
