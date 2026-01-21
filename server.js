@@ -108,11 +108,11 @@ app.get('/articles/all', async (req, res) => {
 app.put('/articles/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, summary, content, category, tags, sources, image, published } = req.body;
+    const { title, summary, content, category, tags, sources, image, published, views } = req.body;
 
     const { data, error } = await supabase
       .from('articles')
-      .update({ title, summary, content, category, tags, sources, image, published })
+      .update({ title, summary, content, category, tags, sources, image, published, views })
       .eq('id', id)
       .select();
 
@@ -176,19 +176,32 @@ app.post('/images', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      return res.status(400).json({ error: 'File size too large. Maximum size is 10MB' });
+    }
+
+    // Check file type
+    if (!file.mimetype.startsWith('image/')) {
+      return res.status(400).json({ error: 'Only image files are allowed' });
+    }
+
     // Upload to Supabase Storage
     const fileExt = file.originalname.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `images/${fileName}`;
 
     const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('images') // Assuming bucket name is 'images'
+      .from('images') // Bucket name is 'images'
       .upload(filePath, file.buffer, {
         contentType: file.mimetype,
         upsert: false
       });
 
     if (uploadError) {
+      if (uploadError.message.includes('bucket not found')) {
+        return res.status(500).json({ error: 'Images bucket not found. Please create it in Supabase dashboard.' });
+      }
       throw new Error(uploadError.message);
     }
 
@@ -211,6 +224,7 @@ app.post('/images', upload.single('image'), async (req, res) => {
 
     res.status(201).json(dbData);
   } catch (error) {
+    console.error('Image upload error:', error);
     res.status(500).json({ error: error.message });
   }
 });
