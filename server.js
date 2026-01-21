@@ -193,9 +193,9 @@ app.post('/images', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Check file size (max 500MB for Supabase Pro)
-    if (file.size > 500 * 1024 * 1024) {
-      return res.status(400).json({ error: 'File size too large. Maximum size is 500MB' });
+    // Check file size (max 50MB for Supabase Free Plan)
+    if (file.size > 50 * 1024 * 1024) {
+      return res.status(400).json({ error: 'File size too large. Maximum size is 50MB' });
     }
 
     // Check file type
